@@ -35,7 +35,7 @@ Proyek sudah mencapai fase integrasi utama antara modul *skill* YouTube dan REST
 Alur kerja sistem dirancang secara modular:
 
 ```text
-[ Pi Agent CLI ] ➔ [ REST API Server (Flask) ] ➔ [ Pi Agent Core ] ➔ [ Skill Modules ] ➔ [ YouTube API ]
+[ Telegram bot ] ➔ [ Pi Agent CLI (yang dibekali dengan Model Claude Sonnet 4.6] ➔ [ REST API Server (Flask) ] ➔ [ Pi Agent Core ] ➔ [ Skill Modules ] ➔ [ YouTube API ]
 ```
 
 ---
