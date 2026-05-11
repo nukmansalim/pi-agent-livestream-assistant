@@ -170,15 +170,29 @@ class StatusSkill(Skill):
     
     async def execute(self, context: PiAgentContext, **kwargs) -> Dict[str, Any]:
         """Execute status check."""
+        auth_action = {
+            "text": "Login ke YouTube",
+            "url": "http://localhost:5000/auth/login"
+        }
+
         if not os.path.exists(TOKEN_FILE):
             return {
                 "success": True,
                 "authenticated": False,
-                "message": "❌ token.pickle belum ada\n\nGunakan /auth untuk autentikasi."
+                "message": "❌ Belum terautentikasi dengan YouTube. Silakan login.",
+                "auth_action": auth_action
             }
         
         try:
             if context.credentials:
+                if not context.credentials.valid and not (context.credentials.expired and context.credentials.refresh_token):
+                    return {
+                        "success": True,
+                        "authenticated": False,
+                        "message": "❌ Token expired dan tidak bisa di-refresh. Silakan login ulang.",
+                        "auth_action": auth_action
+                    }
+                
                 status = (
                     f"✅ token.pickle ada\n"
                     f"Valid: {context.credentials.valid}\n"
@@ -197,7 +211,8 @@ class StatusSkill(Skill):
         return {
             "success": True,
             "authenticated": False,
-            "message": f"⚠️ Error membaca token: {e}"
+            "message": "⚠️ Error membaca token. Silakan login ulang.",
+            "auth_action": auth_action
         }
 
 

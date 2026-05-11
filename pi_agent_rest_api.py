@@ -10,15 +10,19 @@ import sys
 import os
 import json
 import asyncio
+import secrets
 from typing import Dict, Any
-from flask import Flask, request, jsonify
+# pyrefly: ignore [missing-import]
+from flask import Flask, request, jsonify, redirect, session, url_for
 
 # Add project root to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from core.pi_agent_core import get_pi_agent
+from skills.youtube.youtube_auth import get_auth_url, save_credentials_from_code
 
 app = Flask(__name__)
+app.secret_key = secrets.token_hex(16)
 agent = get_pi_agent()
 
 @app.route('/health', methods=['GET'])
@@ -131,6 +135,39 @@ def status():
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 
+@app.route('/auth/login', methods=['GET'])
+def auth_login():
+    """Redirect to Google OAuth login page."""
+    try:
+        redirect_uri = request.host_url.rstrip('/') + url_for('oauth2callback')
+        auth_url, state = get_auth_url(redirect_uri)
+        session['oauth_state'] = state
+        return redirect(auth_url)
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@app.route('/oauth2callback', methods=['GET'])
+def oauth2callback():
+    """Handle the callback from Google OAuth."""
+    try:
+        state = session.get('oauth_state')
+        if not state:
+            # Fallback if session is lost
+            state = request.args.get('state')
+            
+        redirect_uri = request.host_url.rstrip('/') + url_for('oauth2callback')
+        auth_response_url = request.url
+        
+        save_credentials_from_code(auth_response_url, redirect_uri, state)
+        
+        # Refresh service for any active contexts
+        for ctx in agent.contexts.values():
+            ctx.refresh_service()
+            
+        return "<h1>Autentikasi Berhasil!</h1><p>Anda dapat menutup halaman ini dan kembali ke klien Anda.</p>"
+    except Exception as e:
+        return f"<h1>Autentikasi Gagal</h1><p>Error: {str(e)}</p>", 500
+
 if __name__ == '__main__':
     print("🚀 Starting YouTube Pi Agent REST API Server...")
     print("📡 Available endpoints:")
@@ -140,6 +177,7 @@ if __name__ == '__main__':
     print("   POST /upload - Direct upload")
     print("   POST /edit - Direct edit")
     print("   GET  /status - Check auth status")
+    print("   GET  /auth/login - Web OAuth Login")
     print("\n🌐 Server running on http://localhost:5000")
 
     app.run(host='0.0.0.0', port=5000, debug=True)
