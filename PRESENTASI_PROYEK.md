@@ -3,6 +3,12 @@
   <p><i>Kontrol manajemen YouTube melalui Pi CLI dan REST API</i></p>
 </div>
 
+**Anggota Kelompok:**
+1. Mohammad Nukman Salim
+2. Al Imron
+3. Annisaa Nafeeza
+4. Riski
+
 ---
 
 ## 🎯 1. Latar Belakang & Target Capaian
