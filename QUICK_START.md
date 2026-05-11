@@ -1,88 +1,24 @@
-# ⚡ Quick Start - Run Immediately
+# ⚡ Quick Start - YouTube Skill REST API
 
-Jika prerequisites sudah ada, jalankan bot dalam 2 detik:
+Gunakan panduan ini jika Anda sudah melakukan setup dependencies.
 
-## Prerequisites Check
+## 1. Pastikan Credentials Siap
+Pastikan file `client_secrets.json` sudah ada di folder proyek (dibutuhkan untuk akses Google API).
+
+## 2. Jalankan REST API Server
 ```bash
-ls client_secrets.json    # ✅ Google credentials
-echo $TELEGRAM_BOT_TOKEN   # ✅ Bot token (should not be empty)
-python3 --version          # ✅ Python 3.x
-ls yt-agent-env/bin/python # ✅ Virtual environment
-```
-
-## Run Bot (choose one)
-
-### 1️⃣ Recommended (via main.py)
-```bash
-cd /path/to/Pi\ to\ Youtube
-export TELEGRAM_BOT_TOKEN='your_bot_token_here'
-yt-agent-env/bin/python main.py telegram
-```
-
-### 2️⃣ Direct (if already activated venv)
-```bash
+cd "/home/nukman/Dokumen/Pi to Youtube"
 source yt-agent-env/bin/activate
-export TELEGRAM_BOT_TOKEN='your_token'
-python interfaces/telegram/telegram_bot_interface.py
+python pi_agent_rest_api.py
 ```
 
-### 3️⃣ On Raspberry Pi (one-liner)
+## 3. Verifikasi Server
+Buka terminal lain dan jalankan perintah:
 ```bash
-cd /home/nukman/Dokumen/Pi\ to\ Youtube && export TELEGRAM_BOT_TOKEN='your_token' && yt-agent-env/bin/python main.py telegram
+curl http://localhost:5000/health
 ```
-
-## ✅ Bot Started Successfully When You See:
-```
-🤖 Pi Agent Telegram Bot berjalan...
-   - Commands: /start, /help, /auth, /upload, /edit, /status
-   - Chat natural: Bot bisa parse intent dari pesan normal
-```
+*(Jika muncul status "healthy", maka API telah aktif dan siap dikonsumsi oleh Pi Agent CLI!)*
 
 ---
 
-## Troubleshooting
-
-| Problem | Solution |
-|---------|----------|
-| `ModuleNotFoundError` | Run `yt-agent-env/bin/pip install -r requirements.txt` |
-| `TELEGRAM_BOT_TOKEN tidak ditemukan` | Run `export TELEGRAM_BOT_TOKEN='...'` before starting |
-| `client_secrets.json not found` | Download from Google Cloud Console |
-| Bot tidak respond | Check internet, make sure bot is running in terminal |
-
----
-
-## Apa Bedanya dengan README?
-
-| Aspect | README.md | QUICK_START.md |
-|--------|-----------|---|
-| Scope | Setup lengkap dari awal | Hanya run (semua sudah setup) |
-| Target | First time users | Ready to go users |
-| Steps | 1. Install Python 2. Venv 3. Dependencies 4. Run | 1. Set token 2. Run |
-| Time | ~5-10 menit | ~30 detik |
-
-**Jika Anda belum setup:**
-→ Follow [README.md](README.md)
-
-**Jika Anda sudah setup:**
-→ Follow ini (QUICK_START.md)
-
----
-
-## Next: Persistent Run (Opsional)
-
-Agar bot tetap jalan di background:
-
-```bash
-# Using screen (simple)
-screen -S pi_agent -d -m bash -c "cd /home/nukman/Dokumen/Pi\ to\ Youtube && export TELEGRAM_BOT_TOKEN='...' && yt-agent-env/bin/python main.py telegram"
-
-# Check
-screen -list
-
-# Lihat logs
-screen -r pi_agent
-
-# Detach: Ctrl+A, D
-```
-
-Atau lihat [PI_SETUP_GUIDE.md](PI_SETUP_GUIDE.md) untuk systemd (permanent).
+*Catatan: Fitur kontrol Telegram dan *streaming* langsung (OBS) belum tersedia di rilis saat ini dan masih merupakan target capaian pengembangan di masa depan.*
