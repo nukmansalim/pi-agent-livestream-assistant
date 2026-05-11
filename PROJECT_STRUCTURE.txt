@@ -1,0 +1,74 @@
+📁 Pi Agent - Project Structure
+
+.
+├── 📄 main.py                        # ⭐ ENTRY POINT - Jalankan bot dengan ini
+├── 📄 README.md                      # 📖 Main documentation
+├── 📄 requirements.txt               # 📦 Dependencies
+│
+├── 📂 core/                          # 🧠 CORE LOGIC
+│   ├── __init__.py
+│   ├── pi_agent_core.py              # Pi Agent orchestrator + skill registry
+│   └── 📄 README.md
+│
+├── 📂 skills/                        # 🔧 SKILL MODULES
+│   ├── __init__.py
+│   ├── SKILLS.md                     # 📖 How to add new skills
+│   └── 📂 youtube/                   # YouTube Skill
+│       ├── __init__.py
+│       ├── upload_video.py           # Upload implementation
+│       ├── edit_metadata.py          # Edit metadata implementation
+│       └── youtube_auth.py           # Google OAuth implementation
+│
+├── 📂 interfaces/                    # 🖥️ USER INTERFACES
+│   ├── __init__.py
+│   └── 📂 telegram/                  # Telegram Bot Interface
+│       ├── __init__.py
+│       ├── telegram_bot_interface.py # Telegram bot logic
+│       └── 📄 README.md
+│
+├── 📂 yt-agent-env/                  # 🐍 Virtual Environment
+│   └── ...
+│
+├── ⚙️ Config Files (root level)
+│   ├── client_secrets.json           # Google OAuth credentials
+│   ├── token.pickle                  # Google OAuth token (auto-generated)
+│   └── .env                          # Environment variables (optional)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🚀 QUICK START
+
+1. Setup:
+   export TELEGRAM_BOT_TOKEN='your_token'
+   cd "Pi to Youtube"
+
+2. Run:
+   yt-agent-env/bin/python main.py telegram
+
+3. Chat di Telegram:
+   /start
+   Upload /path/video.mp4 judulnya Tutorial
+   Edit video123 judul Baru
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📚 DOCUMENTATION
+
+- README.md                           # Main docs
+- core/README.md                      # Pi Agent Core docs (if exists)
+- skills/SKILLS.md                    # How to add skills
+- interfaces/telegram/README.md       # Telegram interface docs (if exists)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🎯 ARCHITECTURE
+
+Skills layer (youtube, twitter, etc) 
+    ↓
+Core layer (Pi Agent with orchestration)
+    ↓
+Interface layer (Telegram, CLI, Web API)
+    ↓
+User
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
