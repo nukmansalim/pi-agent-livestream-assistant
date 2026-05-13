@@ -3,4 +3,6 @@ google-auth-oauthlib==1.4.0
 google-auth-httplib2==0.4.0
 python-telegram-bot==22.7
 httpx==0.28.1
-python-dotenv==1.0.0flask==3.0.0
+obs-websocket-py
+python-dotenv==1.0.0
+flask==3.0.0

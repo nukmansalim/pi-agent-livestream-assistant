@@ -12,6 +12,9 @@ import json
 import asyncio
 import secrets
 from typing import Dict, Any
+
+# Allow OAuth over HTTP (localhost)
+os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
 # pyrefly: ignore [missing-import]
 from flask import Flask, request, jsonify, redirect, session, url_for
 
@@ -19,11 +22,35 @@ from flask import Flask, request, jsonify, redirect, session, url_for
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from core.pi_agent_core import get_pi_agent
-from skills.youtube.youtube_auth import get_auth_url, save_credentials_from_code
+from skills.youtube.youtube_auth import get_auth_url, save_credentials_from_code, logout, check_api_usage
 
 app = Flask(__name__)
 app.secret_key = secrets.token_hex(16)
 agent = get_pi_agent()
+
+@app.route('/', methods=['GET'])
+def index():
+    """Root endpoint - daftar semua endpoint yang tersedia."""
+    return jsonify({
+        "service": "YouTube Pi Agent REST API",
+        "status": "running",
+        "endpoints": {
+            "GET  /health": "Health check",
+            "GET  /capabilities": "Daftar kemampuan skill",
+            "GET  /status": "Status autentikasi YouTube",
+            "GET  /auth/login": "Login OAuth Google",
+            "POST/GET /auth/logout": "Logout OAuth",
+            "GET  /usage": "Cek kuota YouTube API",
+            "POST /execute": "Jalankan perintah natural language",
+            "POST /upload": "Upload video langsung",
+            "POST /edit": "Edit metadata video",
+            "POST /livestream/create": "Buat livestream baru",
+            "POST /livestream/start": "Mulai livestream",
+            "POST /livestream/end": "Akhiri livestream",
+            "GET  /livestream/status": "Status livestream"
+        },
+        "tip": "Coba akses /health untuk cek status server"
+    })
 
 @app.route('/health', methods=['GET'])
 def health():
@@ -125,12 +152,22 @@ def edit():
 @app.route('/status', methods=['GET'])
 def status():
     """Check authentication status."""
+    import pickle
+    token_file = "token.pickle"
     try:
-        user_id = request.args.get('user_id', 'default_user')
-        user_id_int = hash(user_id) % 1000000
+        if os.path.exists(token_file):
+            with open(token_file, "rb") as f:
+                service = pickle.load(f)
+            authenticated = service is not None
+        else:
+            authenticated = False
 
-        result = asyncio.run(agent.execute(user_id_int, "status"))
-        return jsonify(result)
+        return jsonify({
+            "success": True,
+            "authenticated": authenticated,
+            "message": "✅ Sudah login ke YouTube." if authenticated else "❌ Belum login. Kunjungi /auth/login untuk autentikasi.",
+            "auth_url": "/auth/login" if not authenticated else None
+        })
 
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
@@ -140,8 +177,22 @@ def auth_login():
     """Redirect to Google OAuth login page."""
     try:
         redirect_uri = request.host_url.rstrip('/') + url_for('oauth2callback')
-        auth_url, state = get_auth_url(redirect_uri)
+        auth_url, state, code_verifier = get_auth_url(redirect_uri)
         session['oauth_state'] = state
+        if code_verifier:
+            session['code_verifier'] = code_verifier
+        
+        user_agent = request.headers.get('User-Agent', '').lower()
+        is_api_client = any(client in user_agent for client in ['curl', 'python', 'postman', 'insomnia'])
+        wants_json = request.headers.get('Accept') == 'application/json' or request.args.get('format') == 'json'
+        
+        if is_api_client or wants_json:
+            return jsonify({
+                "success": True,
+                "message": "AI INSTRUCTION: DO NOT open this URL yourself. Ask the human user to open the auth_url. IMPORTANT: You MUST output the auth_url as raw text (e.g. https://...) so the user can easily copy or click it in Telegram. Do NOT hide it inside a markdown link.",
+                "auth_url": auth_url
+            })
+            
         return redirect(auth_url)
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
@@ -151,14 +202,18 @@ def oauth2callback():
     """Handle the callback from Google OAuth."""
     try:
         state = session.get('oauth_state')
+        code_verifier = session.get('code_verifier')
+        
         if not state:
             # Fallback if session is lost
             state = request.args.get('state')
+            if not code_verifier:
+                return "<h1>Sesi Kadaluarsa</h1><p>Server sepertinya direstart atau sesi hilang. Silakan mulai ulang dari <a href='/auth/login'>/auth/login</a>.</p>", 400
             
         redirect_uri = request.host_url.rstrip('/') + url_for('oauth2callback')
         auth_response_url = request.url
         
-        save_credentials_from_code(auth_response_url, redirect_uri, state)
+        save_credentials_from_code(auth_response_url, redirect_uri, state, code_verifier)
         
         # Refresh service for any active contexts
         for ctx in agent.contexts.values():
@@ -166,7 +221,84 @@ def oauth2callback():
             
         return "<h1>Autentikasi Berhasil!</h1><p>Anda dapat menutup halaman ini dan kembali ke klien Anda.</p>"
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         return f"<h1>Autentikasi Gagal</h1><p>Error: {str(e)}</p>", 500
+
+@app.route('/auth/logout', methods=['POST', 'GET'])
+def auth_logout():
+    """Logout from Google OAuth."""
+    try:
+        success = logout()
+        if success:
+            return jsonify({"success": True, "message": "Successfully logged out. Please restart or refresh the agent if needed."})
+        else:
+            return jsonify({"success": True, "message": "Already logged out or no token found."})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@app.route('/usage', methods=['GET'])
+def api_usage():
+    """Check YouTube API Quota/Usage status."""
+    result = check_api_usage()
+    if result["status"] == "error":
+        return jsonify(result), 500
+    return jsonify(result)
+
+# ====================== LIVESTREAM ENDPOINTS ======================
+
+@app.route('/livestream/create', methods=['POST'])
+def livestream_create():
+    """Create new livestream"""
+    try:
+        data = request.get_json()
+        user_id = data.get('user_id', 'default_user')
+        user_id_int = hash(user_id) % 1000000
+
+        command = f"livestream create titled {data.get('title', 'Pi Agent Live')}"
+        result = asyncio.run(agent.execute(user_id_int, command))
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/livestream/start', methods=['POST'])
+def livestream_start():
+    """Start livestream"""
+    try:
+        data = request.get_json()
+        user_id = data.get('user_id', 'default_user')
+        user_id_int = hash(user_id) % 1000000
+
+        command = f"livestream start {data.get('broadcast_id')}"
+        result = asyncio.run(agent.execute(user_id_int, command))
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/livestream/end', methods=['POST'])
+def livestream_end():
+    """End livestream"""
+    try:
+        data = request.get_json()
+        user_id = data.get('user_id', 'default_user')
+        user_id_int = hash(user_id) % 1000000
+
+        command = f"livestream end {data.get('broadcast_id')}"
+        result = asyncio.run(agent.execute(user_id_int, command))
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/livestream/status', methods=['GET'])
+def livestream_status():
+    """Livestream status (can be expanded later)"""
+    return jsonify({
+        "success": True,
+        "message": "Livestream skill is active. Use /livestream/create to start."
+    })
 
 if __name__ == '__main__':
     print("🚀 Starting YouTube Pi Agent REST API Server...")
@@ -178,6 +310,8 @@ if __name__ == '__main__':
     print("   POST /edit - Direct edit")
     print("   GET  /status - Check auth status")
     print("   GET  /auth/login - Web OAuth Login")
+    print("   POST/GET /auth/logout - Web OAuth Logout")
+    print("   GET  /usage - Check API quota usage")
     print("\n🌐 Server running on http://localhost:5000")
 
     app.run(host='0.0.0.0', port=5000, debug=True)
