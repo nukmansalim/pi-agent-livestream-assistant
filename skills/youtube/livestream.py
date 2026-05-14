@@ -31,8 +31,8 @@ class YouTubeLivestreamSkill:
         if not self.youtube:
             raise Exception("YouTube service not initialized. Please authenticate first.")
 
-        start_time = (datetime.datetime.utcnow() + 
-                     datetime.timedelta(minutes=scheduled_minutes)).isoformat() + "Z"
+        start_time = (datetime.datetime.now(datetime.timezone.utc) + 
+                     datetime.timedelta(minutes=scheduled_minutes)).isoformat()
 
         broadcast_body = {
             "snippet": {

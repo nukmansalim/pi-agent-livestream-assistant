@@ -115,16 +115,26 @@ class YouTubeLivestreamSkillClass(Skill):
             elif action == "start":
                 broadcast_id = kwargs.get("broadcast_id")
                 if not broadcast_id:
-                    return {"success": False, "error": "broadcast_id diperlukan"}
+                    return {
+                        "success": False,
+                        "error": "broadcast_id diperlukan",
+                        "hint": "Gunakan POST /livestream/start dengan broadcast_id, atau sertakan ID broadcast pada perintah."
+                    }
                 self.livestream.start_broadcast(broadcast_id)
-                return {"success": True, "message": f"✅ Broadcast {broadcast_id} sedang LIVE!"}
+                return {"success": True, "action": "start", "broadcast_id": broadcast_id,
+                        "message": f"✅ Broadcast {broadcast_id} sedang LIVE!"}
 
             elif action == "end":
                 broadcast_id = kwargs.get("broadcast_id")
                 if not broadcast_id:
-                    return {"success": False, "error": "broadcast_id diperlukan"}
+                    return {
+                        "success": False,
+                        "error": "broadcast_id diperlukan",
+                        "hint": "Gunakan POST /livestream/end dengan broadcast_id, atau sertakan ID broadcast pada perintah."
+                    }
                 self.livestream.end_broadcast(broadcast_id)
-                return {"success": True, "message": f"✅ Broadcast {broadcast_id} telah diakhiri."}
+                return {"success": True, "action": "end", "broadcast_id": broadcast_id,
+                        "message": f"✅ Broadcast {broadcast_id} telah diakhiri."}
 
         except Exception as e:
             return {"success": False, "error": str(e)}
@@ -154,7 +164,14 @@ class PiAgent:
         msg = user_message.lower()
 
         # Livestream Intent
-        if any(word in msg for word in ["live", "livestream", "streaming", "mulai siaran", "akhiri siaran"]):
+        livestream_keywords = [
+            "live", "livestream", "streaming",
+            "broadcast", "siaran",
+            "mulai siaran", "akhiri siaran",
+        ]
+        # Also catch bare "mulai"/"akhiri" when paired with any livestream-adjacent word
+        is_livestream = any(word in msg for word in livestream_keywords)
+        if is_livestream:
             params = self._extract_livestream_params(user_message)
             return "youtube_livestream", params
 
