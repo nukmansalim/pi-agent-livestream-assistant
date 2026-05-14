@@ -128,6 +128,10 @@ result = await agent.execute(user_id, "upload /path/video.mp4 'Title'")
 | `/upload` | POST | Direct video upload |
 | `/edit` | POST | Direct video edit |
 | `/status` | GET | Check authentication status |
+| `/livestream/create` | POST | Buat broadcast & stream baru, dapatkan RTMP stream key |
+| `/livestream/start` | POST | Mulai siaran live (transisi ke status `live`) |
+| `/livestream/end` | POST | Akhiri siaran live (transisi ke status `complete`) |
+| `/livestream/status` | GET | Cek status fitur livestream |
 
 ### Response Format
 
@@ -171,6 +175,32 @@ pi youtube edit "VIDEO_ID" "New Title"
 pi youtube status
 ```
 
+### 4. **Livestream Workflow**
+```bash
+# Step 1 — Buat broadcast baru (dapatkan broadcast_id dan stream_key)
+curl -X POST http://localhost:5000/livestream/create \
+  -H "Content-Type: application/json" \
+  -d '{
+    "user_id": "your_user_id",
+    "title": "Pi Agent Live Session",
+    "description": "Streaming otomatis via Pi Agent",
+    "privacy": "private"
+  }'
+# Response: { "broadcast_id": "...", "stream_id": "...", "stream_key": "...", "rtmp_url": "..." }
+
+# Step 2 — Konfigurasi OBS / encoder dengan rtmp_url + stream_key dari response
+
+# Step 3 — Mulai siaran
+curl -X POST http://localhost:5000/livestream/start \
+  -H "Content-Type: application/json" \
+  -d '{"user_id": "your_user_id", "broadcast_id": "BROADCAST_ID"}'
+
+# Step 4 — Akhiri siaran
+curl -X POST http://localhost:5000/livestream/end \
+  -H "Content-Type: application/json" \
+  -d '{"user_id": "your_user_id", "broadcast_id": "BROADCAST_ID"}'
+```
+
 ### 2. **Script Automation**
 ```python
 import requests
@@ -199,7 +229,9 @@ fetch('/api/youtube/upload', {
 
 ## 🔮 Future Enhancements
 
-- **WebSocket Support** - Real-time updates
+- **OBS Integration** - Kontrol OBS Studio via websocket langsung dari API
+- **Telegram Bot Control** - Kontrol penuh siklus livestream via perintah Telegram
+- **WebSocket Support** - Real-time updates & status siaran
 - **Plugin System** - Hot-reload skills
 - **Multi-user Sessions** - Better user management
 - **Rate Limiting** - API protection

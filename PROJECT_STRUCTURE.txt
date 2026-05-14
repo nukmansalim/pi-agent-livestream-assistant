@@ -17,7 +17,8 @@
 │       ├── __init__.py
 │       ├── upload_video.py           # Upload implementation
 │       ├── edit_metadata.py          # Edit metadata implementation
-│       └── youtube_auth.py           # Google OAuth implementation
+│       ├── youtube_auth.py           # Google OAuth implementation
+│       └── livestream.py             # 🔴 Live broadcast & streaming (BARU)
 │
 ├── 📂 interfaces/                    # 🖥️ USER INTERFACES
 │   ├── __init__.py
