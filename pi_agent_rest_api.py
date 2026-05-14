@@ -255,8 +255,16 @@ def livestream_create():
         user_id = data.get('user_id', 'default_user')
         user_id_int = hash(user_id) % 1000000
 
-        command = f"livestream create titled {data.get('title', 'Pi Agent Live')}"
-        result = asyncio.run(agent.execute(user_id_int, command))
+        # Panggil skill langsung — hindari NLP parser yang bisa salah baca judul
+        context = agent.get_context(user_id_int)
+        skill = agent.skills.get('youtube_livestream')
+        result = asyncio.run(skill.execute(
+            context,
+            action="create",
+            title=data.get('title', 'Pi Agent Live'),
+            description=data.get('description', ''),
+            privacy=data.get('privacy', 'private'),
+        ))
         return jsonify(result)
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
@@ -270,8 +278,17 @@ def livestream_start():
         user_id = data.get('user_id', 'default_user')
         user_id_int = hash(user_id) % 1000000
 
-        command = f"livestream start {data.get('broadcast_id')}"
-        result = asyncio.run(agent.execute(user_id_int, command))
+        broadcast_id = data.get('broadcast_id')
+        if not broadcast_id:
+            return jsonify({"success": False, "error": "broadcast_id diperlukan"}), 400
+
+        context = agent.get_context(user_id_int)
+        skill = agent.skills.get('youtube_livestream')
+        result = asyncio.run(skill.execute(
+            context,
+            action="start",
+            broadcast_id=broadcast_id,
+        ))
         return jsonify(result)
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
@@ -285,8 +302,17 @@ def livestream_end():
         user_id = data.get('user_id', 'default_user')
         user_id_int = hash(user_id) % 1000000
 
-        command = f"livestream end {data.get('broadcast_id')}"
-        result = asyncio.run(agent.execute(user_id_int, command))
+        broadcast_id = data.get('broadcast_id')
+        if not broadcast_id:
+            return jsonify({"success": False, "error": "broadcast_id diperlukan"}), 400
+
+        context = agent.get_context(user_id_int)
+        skill = agent.skills.get('youtube_livestream')
+        result = asyncio.run(skill.execute(
+            context,
+            action="end",
+            broadcast_id=broadcast_id,
+        ))
         return jsonify(result)
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
