@@ -1,85 +1,115 @@
 # YouTube Skill Plugin untuk Pi Agent
 
-Repositori ini berisi implementasi *skill* kustom untuk **Pi Coding Agent** (pi.dev) yang memungkinkan agen untuk mengontrol manajemen channel YouTube (autentikasi, upload video, dan edit metadata) melalui **REST API**.
+Repositori ini berisi implementasi *skill* kustom untuk **Pi Coding Agent** (pi.dev) yang memungkinkan agen untuk mengontrol manajemen channel YouTube (autentikasi, upload video, dan edit metadata) serta **OBS Studio** melalui **REST API**.
 
-## 🎯 Target & Capaian Saat Ini
+## 🎯 Fitur Utama
 
-**Capaian Saat Ini:**
-- ✅ Skill YouTube untuk **upload video** dan **edit metadata**
-- ✅ Skill YouTube untuk **live streaming** (buat, mulai, akhiri broadcast)
-- ✅ REST API Server (Flask)
-- ✅ Autentikasi Google OAuth (`client_secrets.json` & `token.pickle`)
-- ✅ Integrasi *wrapper* untuk Pi Agent CLI
+- ✅ **YouTube Upload** — Upload video dengan metadata
+- ✅ **YouTube Edit** — Edit judul, deskripsi, dan privacy video
+- ✅ **YouTube Livestream** — Buat, mulai, dan akhiri live broadcast
+- ✅ **OBS Control** — Kontrol scene, recording, streaming, audio, dan source via WebSocket
+- ✅ **REST API** — Flask server dengan endpoint lengkap
+- ✅ **Google OAuth** — Autentikasi aman
 
-**Target Kedepan (Future Goals):**
-- 🔲 Integrasi OBS ke YouTube yang dikontrol penuh melalui Bot Telegram.
-- 🔲 Thumbnail otomatis dan penjadwalan upload.
-
-## 📁 Struktur Proyek Utama
+## 📁 Struktur Proyek
 
 ```text
 Pi to Youtube/
-├── core/                          # Orchestrator routing
+├── core/
+│   └── pi_agent_core.py          # Orchestrator skill
 ├── skills/
-│   └── youtube/
-│       ├── upload_video.py        # Upload skill
-│       ├── edit_metadata.py       # Edit metadata skill
-│       ├── youtube_auth.py        # Google OAuth
-│       └── livestream.py          # 🔴 Livestream skill (baru!)
-├── interfaces/                    # Interfaces seperti Telegram
-├── pi_agent_rest_api.py           # Entry point utama (REST API Server)
-├── pi_agent_cli_integration.py    # Integrasi CLI Pi Agent
-├── README.md                      
-└── requirements.txt               
+│   ├── youtube/                   # YouTube Skill
+│   │   ├── upload_video.py
+│   │   ├── edit_metadata.py
+│   │   ├── youtube_auth.py
+│   │   └── livestream.py
+│   └── obs/                       # OBS Skill
+│       ├── obs_websocket.py
+│       ├── obs_control.py
+│       └── obs_skill.py
+├── pi_agent_rest_api.py           # Entry point REST API
+└── requirements.txt
 ```
 
-## 🚀 Instalasi & Setup
+## 🚀 Setup
 
-### 1. Install Dependencies
+1. **Install dependencies:**
+   ```bash
+   python3 -m venv yt-agent-env
+   source yt-agent-env/bin/activate
+   pip install -r requirements.txt
+   ```
+
+2. **Setup Google OAuth:**
+   - Buat project di [Google Cloud Console](https://console.cloud.google.com/)
+   - Enable YouTube Data API v3
+   - Download `client_secrets.json` ke root proyek
+
+3. **Setup OBS (opsional):**
+   - Tools → WebSocket Server Settings → Enable (port 4455)
+
+4. **Jalankan server:**
+   ```bash
+   python pi_agent_rest_api.py
+   ```
+
+## 💡 Penggunaan
+
+### YouTube
+
 ```bash
-python3 -m venv yt-agent-env
-source yt-agent-env/bin/activate
-pip install -r requirements.txt
-```
-
-### 2. Setup Google OAuth
-- Buat project di [Google Cloud Console](https://console.cloud.google.com/)
-- Enable YouTube Data API v3
-- Buat OAuth 2.0 credential (Desktop app)
-- Download sebagai `client_secrets.json` dan letakkan di root proyek.
-
-### 3. Jalankan REST API Server
-```bash
-yt-agent-env/bin/python pi_agent_rest_api.py
-```
-Server akan berjalan di `http://localhost:5000`.
-
-## 💡 Cara Penggunaan (via Pi Agent CLI)
-
-Proyek ini didesain untuk dikonsumsi oleh Pi Agent CLI. Contoh integrasinya:
-
-```bash
-# Cek status autentikasi
-curl http://localhost:5000/status
-
 # Upload video
-curl -X POST http://localhost:5000/upload -H "Content-Type: application/json" -d '{
+curl -X POST http://localhost:5000/upload -d '{
   "file_path": "/path/video.mp4",
-  "title": "Tutorial Coding",
-  "description": "Deskripsi video",
-  "privacy": "private"
+  "title": "Judul Video",
+  "privacy": "public"
 }'
 
-# Buat livestream baru
-curl -X POST http://localhost:5000/livestream/create -H "Content-Type: application/json" -d '{
-  "title": "Pi Agent Live",
-  "description": "Streaming via Pi Agent",
-  "privacy": "private"
+# Edit video
+curl -X POST http://localhost:5000/edit -d '{
+  "video_id": "VIDEO_ID",
+  "title": "Judul Baru"
 }'
-
-# Mulai / akhiri livestream
-curl -X POST http://localhost:5000/livestream/start -H "Content-Type: application/json" -d '{"broadcast_id": "BROADCAST_ID"}'
-curl -X POST http://localhost:5000/livestream/end   -H "Content-Type: application/json" -d '{"broadcast_id": "BROADCAST_ID"}'
 ```
 
-*(Lihat `PI_AGENT_INTEGRATION.md` untuk detail integrasi yang lebih lengkap).*
+### Livestream
+
+```bash
+# Buat livestream
+curl -X POST http://localhost:5000/livestream/create -d '{
+  "title": "Live Stream",
+  "privacy": "public"
+}'
+
+# Mulai / akhiri
+curl -X POST http://localhost:5000/livestream/start -d '{"broadcast_id": "ID"}'
+curl -X POST http://localhost:5000/livestream/end   -d '{"broadcast_id": "ID"}'
+```
+
+### OBS Control
+
+```bash
+# Status
+curl http://localhost:5000/obs/status
+
+# Scene
+curl -X POST http://localhost:5000/obs/scene -d '{"scene_name": "Scene 1"}'
+
+# Recording
+curl -X POST http://localhost:5000/obs/recording -d '{"command": "start"}'
+
+# Streaming
+curl -X POST http://localhost:5000/obs/streaming -d '{"command": "start"}'
+```
+
+## 📚 Dokumentasi
+
+Dokumentasi tambahan tersedia di folder `docs/`:
+
+- `CHANGELOG.md` — Log perubahan
+- `QUICK_START.md` — Panduan cepat
+- `PI_AGENT_INTEGRATION.md` — Integrasi Pi Agent CLI
+
+---
+
+*Proyek ini adalah skill provider untuk Pi Agent CLI.*

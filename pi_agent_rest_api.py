@@ -23,6 +23,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from core.pi_agent_core import get_pi_agent
 from skills.youtube.youtube_auth import get_auth_url, save_credentials_from_code, logout, check_api_usage
+from skills.obs.obs_control import get_obs_skill
 
 app = Flask(__name__)
 app.secret_key = secrets.token_hex(16)
@@ -47,7 +48,20 @@ def index():
             "POST /livestream/create": "Buat livestream baru",
             "POST /livestream/start": "Mulai livestream",
             "POST /livestream/end": "Akhiri livestream",
-            "GET  /livestream/status": "Status livestream"
+            "POST /livestream/bind-obs": "Bind broadcast ke OBS",
+            "POST /livestream/privacy": "Ubah privacy broadcast",
+            "GET  /livestream/status": "Status livestream",
+            "GET  /obs/status": "OBS status",
+            "POST /obs/execute": "Execute OBS command",
+            "POST /obs/scene": "Switch OBS scene",
+            "POST /obs/recording": "Control OBS recording",
+            "POST /obs/streaming": "Control OBS streaming",
+            "POST /obs/source": "Control OBS source visibility",
+            "POST /obs/audio": "Control OBS audio",
+            "GET/POST /obs/sources": "List/create/remove sources",
+            "GET/POST /obs/sources/<name>/settings": "Get/update source settings",
+            "GET /obs/scenes/<name>/items": "List scene items",
+            "POST /obs/transform": "Set source transform"
         },
         "tip": "Coba akses /health untuk cek status server"
     })
@@ -61,19 +75,50 @@ def health():
 def capabilities():
     """Return skill capabilities."""
     caps = {
-        "name": "youtube_manager",
-        "description": "YouTube video management via Pi Agent",
-        "endpoints": [
-            "/execute - Execute natural language commands",
-            "/upload - Direct upload endpoint",
-            "/edit - Direct edit endpoint",
-            "/status - Check authentication status"
-        ],
-        "commands": [
-            "upload video from /path/to/file.mp4 titled 'Title'",
-            "edit video VIDEO_ID with new title 'New Title'",
-            "check youtube authentication status"
-        ]
+        "name": "pi_agent",
+        "description": "YouTube + OBS management via Pi Agent",
+        "skills": {
+            "youtube": {
+                "endpoints": [
+                    "/execute - Execute natural language commands",
+                    "/upload - Direct upload endpoint",
+                    "/edit - Direct edit endpoint",
+                    "/status - Check authentication status"
+                ],
+                "commands": [
+                    "upload video from /path/to/file.mp4 titled 'Title'",
+                    "edit video VIDEO_ID with new title 'New Title'",
+                    "check youtube authentication status"
+                ]
+            },
+            "obs": {
+                "endpoints": [
+                    "/obs/status - Get OBS status",
+                    "/obs/execute - Execute OBS command",
+                    "/obs/scene - Switch scene",
+                    "/obs/recording - Recording control",
+                    "/obs/streaming - Streaming control",
+                    "/obs/source - Source visibility",
+                    "/obs/audio - Audio control",
+                    "/obs/sources - Create/list/remove sources",
+                    "/obs/sources/<name>/settings - Source settings",
+                    "/obs/scenes/<name>/items - Scene items",
+                    "/obs/transform - Source transform"
+                ],
+                "commands": [
+                    "obs status",
+                    "switch scene 'Scene Name'",
+                    "start recording",
+                    "stop recording",
+                    "start streaming",
+                    "stop streaming",
+                    "show source 'Source Name' in scene 'Scene Name'",
+                    "hide source 'Source Name' in scene 'Scene Name'",
+                    "mute 'Mic/Aux'",
+                    "set volume 'Desktop Audio' to -10"
+                ]
+            }
+        }
     }
     return jsonify(caps)
 
@@ -245,6 +290,290 @@ def api_usage():
         return jsonify(result), 500
     return jsonify(result)
 
+# ====================== OBS ENDPOINTS ======================
+
+@app.route('/obs/status', methods=['GET'])
+def obs_status():
+    """Get OBS status."""
+    try:
+        obs = get_obs_skill()
+        result = asyncio.run(obs.execute("status"))
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/obs/execute', methods=['POST'])
+def obs_execute():
+    """Execute OBS command directly."""
+    try:
+        data = request.get_json() or {}
+        action = data.get('action')
+        if not action:
+            return jsonify({"error": "action required"}), 400
+        
+        obs = get_obs_skill()
+        params = {k: v for k, v in data.items() if k != 'action'}
+        result = asyncio.run(obs.execute(action, **params))
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/obs/scene', methods=['POST'])
+def obs_scene():
+    """Switch OBS scene."""
+    try:
+        data = request.get_json() or {}
+        scene_name = data.get('scene_name') or data.get('scene')
+        if not scene_name:
+            return jsonify({"error": "scene_name required"}), 400
+        
+        obs = get_obs_skill()
+        result = asyncio.run(obs.execute("set_scene", scene_name=scene_name))
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/obs/recording', methods=['POST'])
+def obs_recording():
+    """Control OBS recording."""
+    try:
+        data = request.get_json() or {}
+        command = data.get('command', 'status')
+        
+        action_map = {
+            'start': 'start_recording',
+            'stop': 'stop_recording',
+            'pause': 'pause_recording',
+            'resume': 'resume_recording',
+            'status': 'recording_status'
+        }
+        action = action_map.get(command, 'recording_status')
+        
+        obs = get_obs_skill()
+        result = asyncio.run(obs.execute(action))
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/obs/streaming', methods=['POST'])
+def obs_streaming():
+    """Control OBS streaming."""
+    try:
+        data = request.get_json() or {}
+        command = data.get('command', 'status')
+        
+        action_map = {
+            'start': 'start_streaming',
+            'stop': 'stop_streaming',
+            'status': 'streaming_status',
+            'toggle': 'toggle_streaming'
+        }
+        action = action_map.get(command, 'streaming_status')
+        
+        obs = get_obs_skill()
+        result = asyncio.run(obs.execute(action))
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/obs/source', methods=['POST'])
+def obs_source():
+    """Control OBS source visibility."""
+    try:
+        data = request.get_json() or {}
+        command = data.get('command', 'list')
+        scene_name = data.get('scene_name') or data.get('scene')
+        source_name = data.get('source_name') or data.get('source')
+        
+        obs = get_obs_skill()
+        
+        if command == 'list':
+            if not scene_name:
+                return jsonify({"error": "scene_name required for list"}), 400
+            result = asyncio.run(obs.execute("list_scene_items", scene_name=scene_name))
+        elif command == 'show':
+            if not scene_name or not source_name:
+                return jsonify({"error": "scene_name and source_name required"}), 400
+            result = asyncio.run(obs.execute("show_source", scene_name=scene_name, source_name=source_name))
+        elif command == 'hide':
+            if not scene_name or not source_name:
+                return jsonify({"error": "scene_name and source_name required"}), 400
+            result = asyncio.run(obs.execute("hide_source", scene_name=scene_name, source_name=source_name))
+        elif command == 'toggle':
+            if not scene_name or not source_name:
+                return jsonify({"error": "scene_name and source_name required"}), 400
+            result = asyncio.run(obs.execute("toggle_source", scene_name=scene_name, source_name=source_name))
+        else:
+            return jsonify({"error": f"Unknown command: {command}"}), 400
+        
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/obs/audio', methods=['POST'])
+def obs_audio():
+    """Control OBS audio."""
+    try:
+        data = request.get_json() or {}
+        command = data.get('command', 'list')
+        input_name = data.get('input_name') or data.get('source')
+        volume_db = data.get('volume_db')
+        
+        obs = get_obs_skill()
+        
+        if command == 'list':
+            result = asyncio.run(obs.execute("list_sources"))
+        elif command == 'mute':
+            if not input_name:
+                return jsonify({"error": "input_name required"}), 400
+            result = asyncio.run(obs.execute("mute", input_name=input_name))
+        elif command == 'unmute':
+            if not input_name:
+                return jsonify({"error": "input_name required"}), 400
+            result = asyncio.run(obs.execute("unmute", input_name=input_name))
+        elif command == 'toggle_mute':
+            if not input_name:
+                return jsonify({"error": "input_name required"}), 400
+            result = asyncio.run(obs.execute("toggle_mute", input_name=input_name))
+        elif command == 'volume':
+            if not input_name:
+                return jsonify({"error": "input_name required"}), 400
+            result = asyncio.run(obs.execute("get_volume", input_name=input_name))
+        elif command == 'set_volume':
+            if not input_name or volume_db is None:
+                return jsonify({"error": "input_name and volume_db required"}), 400
+            result = asyncio.run(obs.execute("set_volume", input_name=input_name, volume_db=volume_db))
+        else:
+            return jsonify({"error": f"Unknown command: {command}"}), 400
+        
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+# ====================== OBS SOURCE MANAGEMENT ======================
+
+@app.route('/obs/sources', methods=['GET', 'POST'])
+def obs_sources():
+    """Manage OBS sources - create, list, or remove."""
+    try:
+        obs = get_obs_skill()
+        
+        if request.method == 'GET':
+            # List all sources
+            result = asyncio.run(obs.execute("list_sources"))
+            return jsonify(result)
+        
+        # POST - Create or remove source
+        data = request.get_json() or {}
+        action = data.get('action')
+        
+        if action == 'create':
+            scene_name = data.get('scene_name') or data.get('scene')
+            source_name = data.get('source_name') or data.get('name')
+            source_type = data.get('source_type') or data.get('type', 'text_gdiplus_v2')
+            settings = data.get('settings', {})
+            
+            if not scene_name or not source_name:
+                return jsonify({"error": "scene_name and source_name required"}), 400
+            
+            result = asyncio.run(obs.execute(
+                "create_input",
+                scene_name=scene_name,
+                input_name=source_name,
+                input_kind=source_type,
+                settings=settings
+            ))
+            return jsonify(result)
+            
+        elif action == 'remove':
+            source_name = data.get('source_name') or data.get('name')
+            if not source_name:
+                return jsonify({"error": "source_name required"}), 400
+            
+            result = asyncio.run(obs.execute("remove_input", input_name=source_name))
+            return jsonify(result)
+            
+        elif action == 'list_kinds':
+            result = asyncio.run(obs.execute("list_input_kinds"))
+            return jsonify(result)
+            
+        else:
+            return jsonify({"error": "action must be 'create', 'remove', or 'list_kinds'"}), 400
+            
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/obs/sources/<source_name>/settings', methods=['GET', 'POST'])
+def obs_source_settings(source_name):
+    """Get or update source settings."""
+    try:
+        obs = get_obs_skill()
+        
+        if request.method == 'GET':
+            result = asyncio.run(obs.execute("get_input_settings", input_name=source_name))
+            return jsonify(result)
+        
+        # POST - Update settings
+        data = request.get_json() or {}
+        settings = data.get('settings', {})
+        
+        result = asyncio.run(obs.execute(
+            "set_input_settings",
+            input_name=source_name,
+            settings=settings
+        ))
+        return jsonify(result)
+        
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/obs/scenes/<scene_name>/items', methods=['GET'])
+def obs_scene_items(scene_name):
+    """List all items in a scene."""
+    try:
+        obs = get_obs_skill()
+        result = asyncio.run(obs.execute("list_scene_items", scene_name=scene_name))
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/obs/transform', methods=['POST'])
+def obs_transform():
+    """Set source transform (position, scale, rotation)."""
+    try:
+        data = request.get_json() or {}
+        scene_name = data.get('scene_name') or data.get('scene')
+        source_name = data.get('source_name') or data.get('source')
+        transform = data.get('transform', {})
+        
+        if not scene_name or not source_name:
+            return jsonify({"error": "scene_name and source_name required"}), 400
+        if not transform:
+            return jsonify({"error": "transform object required"}), 400
+        
+        obs = get_obs_skill()
+        result = asyncio.run(obs.execute(
+            "set_source_transform",
+            scene_name=scene_name,
+            source_name=source_name,
+            transform=transform
+        ))
+        return jsonify(result)
+        
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
 # ====================== LIVESTREAM ENDPOINTS ======================
 
 @app.route('/livestream/create', methods=['POST'])
@@ -318,13 +647,80 @@ def livestream_end():
         return jsonify({"success": False, "error": str(e)}), 500
 
 
+@app.route('/livestream/bind-obs', methods=['POST'])
+def livestream_bind_obs():
+    """Bind broadcast to OBS and return stream settings."""
+    try:
+        data = request.get_json()
+        user_id = data.get('user_id', 'default_user')
+        user_id_int = hash(user_id) % 1000000
+
+        broadcast_id = data.get('broadcast_id')
+        if not broadcast_id:
+            return jsonify({"success": False, "error": "broadcast_id diperlukan"}), 400
+
+        context = agent.get_context(user_id_int)
+        skill = agent.skills.get('youtube_livestream')
+        result = asyncio.run(skill.execute(
+            context,
+            action="bind_obs",
+            broadcast_id=broadcast_id,
+        ))
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/livestream/privacy', methods=['POST'])
+def livestream_privacy():
+    """Update broadcast privacy status."""
+    try:
+        data = request.get_json()
+        user_id = data.get('user_id', 'default_user')
+        user_id_int = hash(user_id) % 1000000
+
+        broadcast_id = data.get('broadcast_id')
+        privacy = data.get('privacy', 'public')
+        if not broadcast_id:
+            return jsonify({"success": False, "error": "broadcast_id diperlukan"}), 400
+
+        context = agent.get_context(user_id_int)
+        skill = agent.skills.get('youtube_livestream')
+        result = asyncio.run(skill.execute(
+            context,
+            action="update_privacy",
+            broadcast_id=broadcast_id,
+            privacy=privacy,
+        ))
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
 @app.route('/livestream/status', methods=['GET'])
 def livestream_status():
-    """Livestream status (can be expanded later)"""
-    return jsonify({
-        "success": True,
-        "message": "Livestream skill is active. Use /livestream/create to start."
-    })
+    """Get livestream status by broadcast_id."""
+    try:
+        broadcast_id = request.args.get('broadcast_id')
+        if not broadcast_id:
+            return jsonify({
+                "success": True,
+                "message": "Livestream skill is active. Use ?broadcast_id=ID untuk cek status."
+            })
+
+        user_id = request.args.get('user_id', 'default_user')
+        user_id_int = hash(user_id) % 1000000
+
+        context = agent.get_context(user_id_int)
+        skill = agent.skills.get('youtube_livestream')
+        result = asyncio.run(skill.execute(
+            context,
+            action="status",
+            broadcast_id=broadcast_id,
+        ))
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
 
 if __name__ == '__main__':
     print("🚀 Starting YouTube Pi Agent REST API Server...")
@@ -338,6 +734,19 @@ if __name__ == '__main__':
     print("   GET  /auth/login - Web OAuth Login")
     print("   POST/GET /auth/logout - Web OAuth Logout")
     print("   GET  /usage - Check API quota usage")
+    print("   GET  /obs/status - OBS status")
+    print("   POST /obs/execute - Execute OBS command")
+    print("   POST /obs/scene - Switch OBS scene")
+    print("   POST /obs/recording - Recording control")
+    print("   POST /obs/streaming - Streaming control")
+    print("   POST /obs/source - Source visibility")
+    print("   POST /obs/audio - Audio control")
+    print("   GET/POST /obs/sources - Source management")
+    print("   GET/POST /obs/sources/<name>/settings - Source settings")
+    print("   GET /obs/scenes/<name>/items - Scene items")
+    print("   POST /obs/transform - Source transform")
+    print("   POST /livestream/bind-obs - Bind broadcast to OBS")
+    print("   POST /livestream/privacy - Update broadcast privacy")
     print("\n🌐 Server running on http://localhost:5000")
 
     app.run(host='0.0.0.0', port=5000, debug=True)

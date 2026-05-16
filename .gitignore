@@ -60,3 +60,6 @@ coverage.xml
 # Temporary files
 *.tmp
 tmp/
+
+# Documentation (non-essential)
+docs/
