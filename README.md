@@ -75,13 +75,19 @@ curl -X POST http://localhost:5000/edit -d '{
 ### Livestream
 
 ```bash
-# Buat livestream
+# Auto-Start: Buat livestream, sinkronisasi RTMP key ke OBS, dan mulai streaming
+curl -X POST http://localhost:5000/livestream/auto_start -H "Content-Type: application/json" -d '{
+  "title": "Pi Agent Auto Live",
+  "privacy": "unlisted"
+}'
+
+# Buat livestream manual (hanya di YouTube)
 curl -X POST http://localhost:5000/livestream/create -d '{
   "title": "Live Stream",
   "privacy": "public"
 }'
 
-# Mulai / akhiri
+# Mulai / akhiri manual
 curl -X POST http://localhost:5000/livestream/start -d '{"broadcast_id": "ID"}'
 curl -X POST http://localhost:5000/livestream/end   -d '{"broadcast_id": "ID"}'
 ```

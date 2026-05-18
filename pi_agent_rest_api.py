@@ -599,6 +599,65 @@ def livestream_create():
         return jsonify({"success": False, "error": str(e)}), 500
 
 
+@app.route('/livestream/auto_start', methods=['POST'])
+def livestream_auto_start():
+    """Create YouTube livestream, sync RTMP key to OBS, and start OBS streaming."""
+    try:
+        data = request.get_json() or {}
+        user_id = data.get('user_id', 'default_user')
+        user_id_int = hash(user_id) % 1000000
+
+        # 1. Create Livestream on YouTube
+        context = agent.get_context(user_id_int)
+        yt_skill = agent.skills.get('youtube_livestream')
+        yt_result = asyncio.run(yt_skill.execute(
+            context,
+            action="create",
+            title=data.get('title', 'Pi Agent Auto Live'),
+            description=data.get('description', ''),
+            privacy=data.get('privacy', 'private'),
+        ))
+
+        if not yt_result.get("success"):
+            return jsonify({"success": False, "error": f"YouTube Create Failed: {yt_result.get('error')}"}), 500
+
+        rtmp_url = yt_result.get("rtmp_url")
+        stream_key = yt_result.get("stream_key")
+        broadcast_id = yt_result.get("broadcast_id")
+
+        if not rtmp_url or not stream_key:
+             return jsonify({"success": False, "error": "Failed to get RTMP details from YouTube"}), 500
+
+        # 2. Sync to OBS
+        obs = get_obs_skill()
+        
+        # Configure OBS for custom RTMP
+        settings = {
+            "server": rtmp_url,
+            "key": stream_key,
+            "use_auth": False
+        }
+        obs_config_result = asyncio.run(obs.execute("set_stream_settings", service_type="rtmp_custom", settings=settings))
+        if not obs_config_result.get("success"):
+            return jsonify({"success": False, "error": f"OBS Config Failed: {obs_config_result.get('error')}"}), 500
+        
+        # 3. Start OBS Streaming
+        obs_start_result = asyncio.run(obs.execute("start_streaming"))
+        if not obs_start_result.get("success"):
+            return jsonify({"success": False, "error": f"OBS Start Streaming Failed: {obs_start_result.get('error')}"}), 500
+
+        return jsonify({
+            "success": True,
+            "message": "Auto start sequence completed successfully",
+            "broadcast_id": broadcast_id,
+            "youtube": yt_result,
+            "obs_config": obs_config_result,
+            "obs_start": obs_start_result
+        })
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
 @app.route('/livestream/start', methods=['POST'])
 def livestream_start():
     """Start livestream"""
@@ -747,6 +806,7 @@ if __name__ == '__main__':
     print("   POST /obs/transform - Source transform")
     print("   POST /livestream/bind-obs - Bind broadcast to OBS")
     print("   POST /livestream/privacy - Update broadcast privacy")
+    print("   POST /livestream/auto_start - Create YouTube live, sync RTMP, and start OBS")
     print("\n🌐 Server running on http://localhost:5000")
 
     app.run(host='0.0.0.0', port=5000, debug=True)
