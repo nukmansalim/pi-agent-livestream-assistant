@@ -7,7 +7,7 @@ Communicates directly with OBS Studio WebSocket server (default port 4455).
 import json
 import asyncio
 import websockets
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any
 
 
 class OBSWebSocketClient:
@@ -164,9 +164,6 @@ class OBSWebSocketClient:
         """Get recording status."""
         return await self.send_request("GetRecordStatus")
 
-    async def toggle_record_pause(self) -> Dict[str, Any]:
-        """Toggle record pause."""
-        return await self.send_request("ToggleRecordPause")
 
     # ==================== STREAMING CONTROL ====================
 
@@ -236,9 +233,6 @@ class OBSWebSocketClient:
 
     # ==================== STUDIO MODE ====================
 
-    async def get_studio_mode_enabled(self) -> Dict[str, Any]:
-        """Check if studio mode is enabled."""
-        return await self.send_request("GetStudioModeEnabled")
 
     async def set_studio_mode_enabled(self, enabled: bool) -> Dict[str, Any]:
         """Enable/disable studio mode."""
@@ -337,18 +331,9 @@ class OBSWebSocketClient:
         """Remove an input."""
         return await self.send_request("RemoveInput", {"inputName": input_name})
 
-    async def remove_scene_item(self, scene_name: str, scene_item_id: int) -> Dict[str, Any]:
-        """Remove a scene item."""
-        return await self.send_request("RemoveSceneItem", {
-            "sceneName": scene_name,
-            "sceneItemId": scene_item_id
-        })
 
     # ==================== AUDIO CONTROL ====================
 
-    async def get_input_mute(self, input_name: str) -> Dict[str, Any]:
-        """Get input mute state."""
-        return await self.send_request("GetInputMute", {"inputName": input_name})
 
     async def set_input_mute(self, input_name: str, muted: bool) -> Dict[str, Any]:
         """Set input mute state."""
@@ -377,9 +362,6 @@ class OBSWebSocketClient:
         """List all transitions."""
         return await self.send_request("GetSceneTransitionList")
 
-    async def get_current_scene_transition(self) -> Dict[str, Any]:
-        """Get current transition."""
-        return await self.send_request("GetCurrentSceneTransition")
 
     async def set_current_scene_transition(self, transition_name: str) -> Dict[str, Any]:
         """Set current transition."""
@@ -413,17 +395,8 @@ class OBSWebSocketClient:
 
     # ==================== OUTPUTS ====================
 
-    async def get_output_list(self) -> Dict[str, Any]:
-        """List all outputs."""
-        return await self.send_request("GetOutputList")
 
-    async def get_output_status(self, output_name: str) -> Dict[str, Any]:
-        """Get output status."""
-        return await self.send_request("GetOutputStatus", {"outputName": output_name})
 
-    async def toggle_output(self, output_name: str) -> Dict[str, Any]:
-        """Toggle output."""
-        return await self.send_request("ToggleOutput", {"outputName": output_name})
 
     # ==================== HOTKEYS ====================
 
@@ -487,9 +460,6 @@ class OBSWebSocketClient:
         """Get special input names (desktop audio, mic)."""
         return await self.send_request("GetSpecialInputs")
 
-    async def get_monitor_list(self) -> Dict[str, Any]:
-        """Get monitor list."""
-        return await self.send_request("GetMonitorList")
 
     # ==================== FILTERS ====================
 
@@ -543,19 +513,7 @@ class OBSWebSocketClient:
         """Get media input status (playing, paused, etc)."""
         return await self.send_request("GetMediaInputStatus", {"inputName": input_name})
 
-    async def set_media_input_cursor(self, input_name: str, cursor: int) -> Dict[str, Any]:
-        """Set media input cursor position (ms)."""
-        return await self.send_request("SetMediaInputCursor", {
-            "inputName": input_name,
-            "mediaCursor": cursor
-        })
 
-    async def offset_media_input_cursor(self, input_name: str, offset: int) -> Dict[str, Any]:
-        """Offset media input cursor by milliseconds."""
-        return await self.send_request("OffsetMediaInputCursor", {
-            "inputName": input_name,
-            "mediaCursorOffset": offset
-        })
 
     async def trigger_media_input_action(self, input_name: str, action: str) -> Dict[str, Any]:
         """Trigger media input action: play, pause, restart, stop, next, previous."""
@@ -628,20 +586,7 @@ class OBSWebSocketClient:
         await self.set_scene_item_enabled(scene_name, item_id, visible)
         return True
 
-    async def get_source_visibility(self, scene_name: str, source_name: str) -> Optional[bool]:
-        """Get source visibility by name."""
-        item_id = await self.find_scene_item_by_name(scene_name, source_name)
-        if item_id is None:
-            return None
-        result = await self.get_scene_item_enabled(scene_name, item_id)
-        return result.get("sceneItemEnabled")
 
-    async def switch_scene_and_wait(self, scene_name: str, delay: float = 0.5) -> Dict[str, Any]:
-        """Switch scene and optionally wait."""
-        result = await self.set_current_scene(scene_name)
-        if delay > 0:
-            await asyncio.sleep(delay)
-        return result
 
     async def __aenter__(self):
         await self.connect()

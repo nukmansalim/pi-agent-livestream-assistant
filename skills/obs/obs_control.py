@@ -19,18 +19,6 @@ class OBSControlSkill:
         self.password = os.getenv("OBS_PASSWORD", "")
         self.client: Optional[OBSWebSocketClient] = None
 
-    async def _get_client(self) -> OBSWebSocketClient:
-        """Get or create connected client."""
-        if self.client is None or not self.client.is_connected():
-            self.client = OBSWebSocketClient(self.host, self.port, self.password)
-            await self.client.connect()
-        return self.client
-
-    async def _close_client(self):
-        """Close client connection."""
-        if self.client:
-            await self.client.disconnect()
-            self.client = None
 
     async def execute(self, action: str, **kwargs) -> Dict[str, Any]:
         """Execute OBS action with parameters."""

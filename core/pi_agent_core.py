@@ -8,7 +8,7 @@ import pickle
 import re
 import asyncio
 from typing import Any, Dict, Optional
-from pathlib import Path
+
 
 # Import existing skills
 from skills.youtube.upload_video import upload_video
